@@ -7,7 +7,12 @@
 
 #pragma once
 
+#include <filesystem>
 #include <future>
+#include <mutex>
+#include <string>
+#include <tuple>
+#include <vector>
 
 #include "braft/raft.h"
 #include "brpc/server.h"
@@ -99,6 +104,7 @@ class PRaft : public braft::StateMachine {
   butil::Status AddPeer(const std::string& peer);
   butil::Status RemovePeer(const std::string& peer);
   butil::Status RaftRecvEntry();
+  butil::Status DoSnapshot();
 
   void ShutDown();
   void Join();
@@ -149,6 +155,9 @@ class PRaft : public braft::StateMachine {
   void on_start_following(const ::braft::LeaderChangeContext& ctx) override;
 
  private:
+  static int AddAllFiles(const std::filesystem::path& dir, braft::SnapshotWriter* writer, const std::string& path);
+
+ private:
   std::unique_ptr<brpc::Server> server_{nullptr};  // brpc
   std::unique_ptr<braft::Node> node_{nullptr};
   braft::NodeOptions node_options_;  // options for raft node
@@ -156,6 +165,7 @@ class PRaft : public braft::StateMachine {
 
   ClusterCmdContext cluster_cmd_ctx_;  // context for cluster join/remove command
   std::string group_id_;               // group id
+  int db_id_ = 0;                      // db_id
 };
 
 }  // namespace pikiwidb

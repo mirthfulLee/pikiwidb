@@ -7,6 +7,8 @@
 
 #include "cmd_table_manager.h"
 
+#include <memory>
+
 #include "cmd_admin.h"
 #include "cmd_hash.h"
 #include "cmd_keys.h"

@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 
+#include "net/event_loop.h"
 #include "praft/praft.h"
 #include "pstd/log.h"
 #include "pstd/pstd_string.h"
@@ -28,8 +29,9 @@ RaftNodeCmd::RaftNodeCmd(const std::string& name, int16_t arity)
 bool RaftNodeCmd::DoInitial(PClient* client) {
   auto cmd = client->argv_[1];
   pstd::StringToUpper(cmd);
-  if (cmd != kAddCmd && cmd != kRemoveCmd) {
-    client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE only");
+
+  if (cmd != kAddCmd && cmd != kRemoveCmd && cmd != kDoSnapshot) {
+    client->SetRes(CmdRes::kErrOther, "RAFT.NODE supports ADD / REMOVE / DOSNAPSHOT only");
     return false;
   }
   return true;
@@ -40,8 +42,10 @@ void RaftNodeCmd::DoCmd(PClient* client) {
   pstd::StringToUpper(cmd);
   if (cmd == kAddCmd) {
     DoCmdAdd(client);
-  } else {
+  } else if (cmd == kRemoveCmd) {
     DoCmdRemove(client);
+  } else {
+    DoCmdSnapshot(client);
   }
 }
 
@@ -112,6 +116,13 @@ void RaftNodeCmd::DoCmdRemove(PClient* client) {
     client->SetRes(CmdRes::kOK);
   } else {
     client->SetRes(CmdRes::kErrOther, fmt::format("Failed to remove peer: {}", s.error_str()));
+  }
+}
+
+void RaftNodeCmd::DoCmdSnapshot(PClient* client) {
+  auto s = PRAFT.DoSnapshot();
+  if (s.ok()) {
+    client->SetRes(CmdRes::kOK);
   }
 }
 

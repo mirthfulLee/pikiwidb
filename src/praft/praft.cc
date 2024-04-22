@@ -9,6 +9,7 @@
 
 #include <cassert>
 
+#include "braft/snapshot.h"
 #include "braft/util.h"
 #include "brpc/server.h"
 
@@ -18,6 +19,8 @@
 #include "binlog.pb.h"
 #include "config.h"
 #include "pikiwidb.h"
+#include "praft.h"
+
 #include "praft_service.h"
 #include "replication.h"
 #include "store.h"
@@ -112,7 +115,6 @@ butil::Status PRaft::Init(std::string& group_id, bool initial_conf_is_null) {
     server_.reset();
     return ERROR_LOG_AND_STATUS("Failed to start server");
   }
-
   // It's ok to start PRaft;
   assert(group_id.size() == RAFT_GROUPID_LEN);
   this->group_id_ = group_id;
@@ -514,6 +516,16 @@ butil::Status PRaft::RemovePeer(const std::string& peer) {
   return {0, "OK"};
 }
 
+butil::Status PRaft::DoSnapshot() {
+  if (!node_) {
+    return ERROR_LOG_AND_STATUS("Node is not initialized");
+  }
+  braft::SynchronizedClosure done;
+  node_->snapshot(&done);
+  done.wait();
+  return done.status();
+}
+
 void PRaft::OnClusterCmdConnectionFailed([[maybe_unused]] EventLoop* loop, const char* peer_ip, int port) {
   auto cli = cluster_cmd_ctx_.GetClient();
   if (cli) {
@@ -567,6 +579,26 @@ void PRaft::AppendLog(const Binlog& log, std::promise<rocksdb::Status>&& promise
   node_->apply(task);
 }
 
+int PRaft::AddAllFiles(const std::filesystem::path& dir, braft::SnapshotWriter* writer, const std::string& path) {
+  assert(writer);
+  for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+    if (entry.is_directory()) {
+      if (entry.path() != "." && entry.path() != "..") {
+        DEBUG("dir_path = {}", entry.path().string());
+        AddAllFiles(entry.path(), writer, path);
+      }
+    } else {
+      DEBUG("file_path = {}", std::filesystem::relative(entry.path(), path).string());
+      if (writer->add_file(std::filesystem::relative(entry.path(), path)) != 0) {
+        ERROR("add file {} to snapshot fail!", entry.path().string());
+        return -1;
+      }
+    }
+  }
+  return 0;
+}
+
+// @braft::StateMachine
 void PRaft::Clear() {
   if (node_) {
     node_.reset();
@@ -607,9 +639,27 @@ void PRaft::on_apply(braft::Iterator& iter) {
   }
 }
 
-void PRaft::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {}
+void PRaft::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {
+  assert(writer);
+  brpc::ClosureGuard done_guard(done);
+  auto path = writer->get_path();
+  INFO("Saving snapshot to {}", path);
+  TasksVector tasks(1, {TaskType::kCheckpoint, db_id_, {{TaskArg::kCheckpointPath, path}}, true});
+  PSTORE.HandleTaskSpecificDB(tasks);
+  if (auto res = AddAllFiles(path, writer, path); res != 0) {
+    done->status().set_error(EIO, "Fail to add file to writer");
+  }
+}
 
-int PRaft::on_snapshot_load(braft::SnapshotReader* reader) { return 0; }
+int PRaft::on_snapshot_load(braft::SnapshotReader* reader) {
+  CHECK(!IsLeader()) << "Leader is not supposed to load snapshot";
+  assert(reader);
+  auto reader_path = reader->get_path();                 // xx/snapshot_0000001
+  auto path = g_config.dbpath + std::to_string(db_id_);  // db/db_id
+  TasksVector tasks(1, {TaskType::kLoadDBFromCheckpoint, db_id_, {{TaskArg::kCheckpointPath, reader_path}}, true});
+  PSTORE.HandleTaskSpecificDB(tasks);
+  return 0;
+}
 
 void PRaft::on_leader_start(int64_t term) {
   WARN("Node {} start to be leader, term={}", node_->node_id().to_string(), term);
