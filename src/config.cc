@@ -5,10 +5,6 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#include <string>
-#include <system_error>
-#include <vector>
-
 #include "config.h"
 #include "pstd/pstd_string.h"
 #include "store.h"
@@ -139,43 +135,42 @@ Status AtomicNumberValue<T>::SetValue(const std::string& value) {
 }
 
 PConfig::PConfig() {
-  // TODO(lihuan): change irrewritable attributes to non-atmoic type
-  AddAtomicBool("daemonize", &CheckYesNo, false, &daemonize);
-  AddAtomicString("ip", false, {&ip});
-  AddAtomicNumberWihLimit<uint16_t>("port", false, &port, PORT_LIMIT_MIN, PORT_LIMIT_MAX);
+  // TODO(lihuan): update all affected references
+  AddBool("daemonize", &CheckYesNo, false, &daemonize);
+  AddString("ip", false, {&ip});
+  AddNumberWihLimit<uint16_t>("port", false, &port, PORT_LIMIT_MIN, PORT_LIMIT_MAX);
   AddAtomicNumber("raft-port-offset", true, &raft_port_offset);
   AddAtomicNumber("timeout", true, &timeout);
-  AddAtomicString("db-path", false, {&db_path});
-  AddAtomicStrinWithFunc("loglevel", &CheckLogLevel, false, {&log_level});
-  AddAtomicString("logfile", false, {&log_dir});
-  AddAtomicNumberWihLimit<size_t>("databases", false, &databases, 1, DBNUMBER_MAX);
+  AddString("db-path", false, {&db_path});
+  AddStrinWithFunc("loglevel", &CheckLogLevel, false, {&log_level});
+  AddString("logfile", false, {&log_dir});
+  AddNumberWihLimit<size_t>("databases", false, &databases, 1, DBNUMBER_MAX);
   AddAtomicString("requirepass", true, {&password});
   AddAtomicNumber("maxclients", true, &max_clients);
-  AddAtomicNumberWihLimit<uint32_t>("worker-threads", false, &worker_threads_num, 1, THREAD_MAX);
-  AddAtomicNumberWihLimit<uint32_t>("slave-threads", false, &worker_threads_num, 1, THREAD_MAX);
+  AddNumberWihLimit<uint32_t>("worker-threads", false, &worker_threads_num, 1, THREAD_MAX);
+  AddNumberWihLimit<uint32_t>("slave-threads", false, &worker_threads_num, 1, THREAD_MAX);
   AddAtomicNumber("slowlog-log-slower-than", true, &slow_log_time);
   AddAtomicNumber("slowlog-max-len", true, &slow_log_max_len);
   AddAtomicNumberWihLimit<size_t>("db-instance-num", true, &db_instance_num, 1, ROCKSDB_INSTANCE_NUMBER_MAX);
-  AddAtomicNumberWihLimit<int32_t>("fast-cmd-threads-num", false, &fast_cmd_threads_num, 1, THREAD_MAX);
-  AddAtomicNumberWihLimit<int32_t>("slow-cmd-threads-num", false, &slow_cmd_threads_num, 1, THREAD_MAX);
+  AddNumberWihLimit<int32_t>("fast-cmd-threads-num", false, &fast_cmd_threads_num, 1, THREAD_MAX);
+  AddNumberWihLimit<int32_t>("slow-cmd-threads-num", false, &slow_cmd_threads_num, 1, THREAD_MAX);
   AddAtomicNumber("max-client-response-size", true, &max_client_response_size);
   AddAtomicString("runid", false, {&run_id});
   AddAtomicNumber("small-compaction-threshold", true, &small_compaction_threshold);
   AddAtomicNumber("small-compaction-duration-threshold", true, &small_compaction_duration_threshold);
-  AddAtomicBool("use-raft", &CheckYesNo, false, &use_raft);
+  AddBool("use-raft", &CheckYesNo, false, &use_raft);
 
   // rocksdb config
-  AddAtomicNumber("rocksdb-max-subcompactions", false, &rocksdb_max_subcompactions);
-  AddAtomicNumber("rocksdb-max-background-jobs", false, &rocksdb_max_background_jobs);
-  AddAtomicNumber("rocksdb-max-write-buffer-number", false, &rocksdb_max_write_buffer_number);
-  AddAtomicNumber("rocksdb-min-write-buffer-number-to-merge", false, &rocksdb_min_write_buffer_number_to_merge);
-  AddAtomicNumber("rocksdb-write-buffer-size", false, &rocksdb_write_buffer_size);
-  AddAtomicNumber("rocksdb-level0-file-num-compaction-trigger", false, &rocksdb_level0_file_num_compaction_trigger);
+  AddNumber("rocksdb-max-subcompactions", false, &rocksdb_max_subcompactions);
+  AddNumber("rocksdb-max-background-jobs", false, &rocksdb_max_background_jobs);
+  AddNumber("rocksdb-max-write-buffer-number", false, &rocksdb_max_write_buffer_number);
+  AddNumber("rocksdb-min-write-buffer-number-to-merge", false, &rocksdb_min_write_buffer_number_to_merge);
+  AddNumber("rocksdb-write-buffer-size", false, &rocksdb_write_buffer_size);
+  AddNumber("rocksdb-level0-file-num-compaction-trigger", false, &rocksdb_level0_file_num_compaction_trigger);
   AddAtomicNumber("rocksdb-number-levels", true, &rocksdb_num_levels);
-  AddAtomicBool("rocksdb-enable-pipelined-write", CheckYesNo, false, &rocksdb_enable_pipelined_write);
-  AddAtomicNumber("rocksdb-level0-slowdown-writes-trigger", false, &rocksdb_level0_slowdown_writes_trigger);
-  AddAtomicNumber("rocksdb-level0-stop-writes-trigger", false, &rocksdb_level0_stop_writes_trigger);
-  AddAtomicNumber("rocksdb-level0-slowdown-writes-trigger", false, &rocksdb_level0_slowdown_writes_trigger);
+  AddBool("rocksdb-enable-pipelined-write", CheckYesNo, false, &rocksdb_enable_pipelined_write);
+  AddNumber("rocksdb-level0-slowdown-writes-trigger", false, &rocksdb_level0_slowdown_writes_trigger);
+  AddNumber("rocksdb-level0-stop-writes-trigger", false, &rocksdb_level0_stop_writes_trigger);
 }
 
 bool PConfig::LoadFromFile(const std::string& file_name) {

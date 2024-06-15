@@ -137,28 +137,28 @@ bool PikiwiDB::Init() {
   }
 
   NewTcpConnectionCallback cb = std::bind(&PikiwiDB::OnNewConnection, this, std::placeholders::_1);
-  if (!worker_threads_.Init(g_config.ip.ToString().c_str(), g_config.port.load(), cb)) {
-    ERROR("worker_threads Init failed. IP = {} Port = {}", g_config.ip.ToString(), g_config.port.load());
+  if (!worker_threads_.Init(g_config.ip.c_str(), g_config.port, cb)) {
+    ERROR("worker_threads Init failed. IP = {} Port = {}", g_config.ip, g_config.port);
     return false;
   }
 
-  auto num = g_config.worker_threads_num.load() + g_config.slave_threads_num.load();
+  auto num = g_config.worker_threads_num + g_config.slave_threads_num.load();
   auto kMaxWorkerNum = IOThreadPool::GetMaxWorkerNum();
   if (num > kMaxWorkerNum) {
     ERROR("number of threads can't exceeds {}, now is {}", kMaxWorkerNum, num);
     return false;
   }
-  worker_threads_.SetWorkerNum(static_cast<size_t>(g_config.worker_threads_num.load()));
+  worker_threads_.SetWorkerNum(static_cast<size_t>(g_config.worker_threads_num));
   slave_threads_.SetWorkerNum(static_cast<size_t>(g_config.slave_threads_num.load()));
 
   // now we only use fast cmd thread pool
-  auto status = cmd_threads_.Init(g_config.fast_cmd_threads_num.load(), 0, "pikiwidb-cmd");
+  auto status = cmd_threads_.Init(g_config.fast_cmd_threads_num, 0, "pikiwidb-cmd");
   if (!status.ok()) {
     ERROR("init cmd thread pool failed: {}", status.ToString());
     return false;
   }
 
-  PSTORE.Init(g_config.databases.load(std::memory_order_relaxed));
+  PSTORE.Init(g_config.databases);
 
   PSlowLog::Instance().SetThreshold(g_config.slow_log_time.load());
   PSlowLog::Instance().SetLogLimit(static_cast<std::size_t>(g_config.slow_log_max_len.load()));
@@ -256,7 +256,7 @@ int main(int ac, char* av[]) {
            static_cast<int>(g_config.port));
   std::cout << logo;
 
-  if (g_config.daemonize.load()) {
+  if (g_config.daemonize) {
     daemonize();
   }
 
@@ -264,7 +264,7 @@ int main(int ac, char* av[]) {
   SignalSetup();
   InitLogs();
 
-  if (g_config.daemonize.load()) {
+  if (g_config.daemonize) {
     closeStd();
   }
 
